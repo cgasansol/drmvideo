@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cinebox DRM - Masterclass Cinematic Edition</title>
+    
+    <!-- Shaka Player CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.1/shaka-player.compiled.js"></script>
+    
+    <!-- Premium Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@500;700;900&family=Montserrat:ital,wght@0,300;0,400;0,500;0,700;1,800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+    <style>
+        /* ================= GLOBAL SETTINGS ================= */
+        :root {
+            --bg-color: #000000; 
+            --font-main: 'Montserrat', sans-serif;
+            --font-terminal: 'Share Tech Mono', monospace;
+            --font-3d: 'Cinzel Decorative', 'Cinzel', serif;
+            
+            /* Cinematic Palette */
+            --primary-blue: #0055ff;
+            --accent-cyan: #00e5ff;
+            
+            --card-width: 280px; 
+            --card-height: 157.5px; 
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body, html {
+            background-color: var(--bg-color); color: #ffffff; font-family: var(--font-main);
+            width: 100vw; height: 100vh; overflow: hidden;
+            display: flex; justify-content: center; align-items: center;
+            -webkit-user-select: none; -moz-user-select: none; user-select: none;
+        }
+
+        #master-16-9-container {
+            position: relative; width: 100vw; height: 56.25vw; 
+            max-height: 100vh; max-width: 177.78vh; background-color: #030408; 
+            overflow: hidden; perspective: 2500px; 
+            box-shadow: inset 0 0 100px rgba(0, 0, 0, 1);
+        }
+
+        /* ================= VISUAL EFFECTS ================= */
+        .scanlines {
+            position: absolute; inset: 0; z-index: -1; pointer-events: none; 
+            opacity: 0.15; transition: opacity 0.5s ease;
+            background: linear-gradient(to bottom, transparent, transparent 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
+            background-size: 100% 3px; 
+        }
+        .scanlines.hidden { opacity: 0 !important; }
+
+        .ambient-glow { 
+            position: absolute; bottom: -20%; right: -10%; width: 60%; height: 60%; 
+            background: radial-gradient(circle, rgba(0, 85, 255, 0.15) 0%, transparent 60%); 
+            z-index: -1; pointer-events: none; filter: blur(70px); 
+            animation: slowPan 12s ease-in-out infinite alternate; transition: opacity 0.5s ease;
+        }
+        .ambient-glow.hidden { opacity: 0 !important; }
+        @keyframes slowPan { 0% { transform: translate(0, 0) scale(1); } 100% { transform: translate(-8%, -5%) scale(1.15); } }
+
+        .particles-container { position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; opacity: 0; transition: opacity 1.5s ease; }
+        .show-app .particles-container { opacity: 1; }
+        .particles-container.hidden { opacity: 0 !important; }
+        
+        .particle { position: absolute; background: var(--accent-cyan); border-radius: 50%; opacity: 0; box-shadow: 0 0 10px var(--accent-cyan); animation: floatDust linear infinite; }
+        @keyframes floatDust { 0% { transform: translateY(0) scale(0.5); opacity: 0; } 50% { opacity: 0.6; } 100% { transform: translateY(-15vh) scale(1.5); opacity: 0; } }
+
+        /* ================= FLOATING MASTER LOADER ================= */
+        #initial-black-screen { position: absolute; inset: 0; background: #000; z-index: 9999998; display: none; opacity: 1; transition: opacity 1s ease; }
+        #floating-loader { position: absolute; bottom: 8%; right: 5%; z-index: 9999999; display: none; align-items: center; flex-direction: row; gap: 15px; opacity: 1; transition: opacity 1s ease; }
+        .master-spinner { width: 45px; height: 45px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.05); border-top: 3px solid var(--accent-cyan); border-bottom: 3px solid var(--primary-blue); animation: spinMaster 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite; box-shadow: 0 0 20px rgba(0, 229, 255, 0.2); position: relative; }
+        .master-spinner::before { content: ''; position: absolute; inset: 4px; border-radius: 50%; border: 2px solid transparent; border-left: 2px solid rgba(255,255,255,0.5); animation: spinMasterReverse 0.8s linear infinite; }
+        @keyframes spinMaster { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes spinMasterReverse { 0% { transform: rotate(360deg); } 100% { transform: rotate(0deg); } }
+        .loading-status-text { font-family: var(--font-terminal); font-size: 0.8rem; color: rgba(255, 255, 255, 0.85); text-transform: uppercase; letter-spacing: 3px; white-space: nowrap; text-shadow: 0 2px 8px rgba(0,0,0,1); }
+        .loading-status-text::after { content: '█'; animation: blinkCursor 1s step-end infinite; margin-left: 8px; color: var(--accent-cyan); }
+        @keyframes blinkCursor { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+        /* ================= DISCLAIMER SCREEN ================= */
+        #preloader { position: absolute; inset: 0; background: #020202; z-index: 9999997; display: none; justify-content: center; align-items: center; opacity: 0; transition: opacity 1s ease; }
+        .disclaimer-text { font-family: 'Share Tech Mono', monospace; font-size: 1.1rem; line-height: 1.9; color: #d1d1d1; text-align: left; max-width: 800px; padding: 40px; border-left: 3px solid var(--primary-blue); background: linear-gradient(90deg, rgba(0, 85, 255, 0.08), transparent); }
+        .disclaimer-text strong.main-title { font-size: 1.3rem; color: #fff; letter-spacing: 5px; margin-bottom: 25px; display: block; background: var(--primary-blue); padding: 5px 15px; width: fit-content; text-transform: uppercase; }
+        .highlight-text { color: var(--accent-cyan); font-weight: 700; text-shadow: 0 0 10px rgba(0,229,255,0.4); } 
+
+        /* ================= SPLASH & INTRO ================= */
+        #logo-screen { position: absolute; inset: 0; background-color: #000; z-index: 9999990; display: none; justify-content: center; align-items: center; opacity: 0; transition: opacity 1s ease; }
+        .company-logo-img { width: 100%; height: 100%; object-fit: cover; filter: contrast(1.1) brightness(0.9); }
+        #intro-section { position: absolute; inset: 0; display: none; justify-content: center; align-items: center; z-index: 100; transition: opacity 1s ease 0.5s; }
+        .bar { position: absolute; left: 0; width: 100%; height: 50%; background: #000; z-index: 105; transition: transform 2s cubic-bezier(0.75, 0, 0.25, 1); }
+        .bar-top { top: 0; border-bottom: 1px solid rgba(255,255,255,0.05); } 
+        .bar-bottom { bottom: 0; border-top: 1px solid rgba(255,255,255,0.05); }
+        .page-loaded .bar-top { transform: translateY(-100%); } .page-loaded .bar-bottom { transform: translateY(100%); }
+        .logo-text { font-family: 'Cinzel', serif; font-weight: 900; letter-spacing: 0.15em; color: transparent; -webkit-text-stroke: 1px rgba(255, 255, 255, 0.3); background-image: linear-gradient(90deg, #111 0%, var(--accent-cyan) 50%, #111 100%); background-size: 200% auto; -webkit-background-clip: text; opacity: 0; z-index: 110; font-size: 3.5vw; text-align: center; }
+        .page-loaded .logo-text { animation: studioLogoReveal 4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+        @keyframes studioLogoReveal { 0% { opacity: 0; filter: blur(20px); transform: scale(0.9) translateZ(-100px); } 30% { opacity: 1; filter: blur(0px); background-position: -100% center; text-shadow: 0 0 30px rgba(0, 225, 255, 0.5); } 100% { opacity: 0; transform: scale(1.1) translateZ(50px); filter: blur(10px); } }
+        #black-transition { position: absolute; inset: 0; background-color: #000; z-index: 90; opacity: 1; transition: opacity 2s ease; pointer-events: none; }
+
+        /* ================= START BUTTON ================= */
+        #start-button { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 18px 50px; font-size: 1rem; font-family: var(--font-main); font-weight: 500; letter-spacing: 4px; color: #fff; text-transform: uppercase; background: rgba(5, 10, 20, 0.7); backdrop-filter: blur(15px); border: 1px solid rgba(0, 229, 255, 0.3); border-radius: 4px; cursor: pointer; z-index: 99999999; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9); transition: all 0.4s ease; }
+        #start-button:hover { transform: translate(-50%, -50%) scale(1.03); background: rgba(0, 85, 255, 0.3); border-color: var(--accent-cyan); box-shadow: 0 15px 40px rgba(0, 0, 0, 1), 0 0 30px rgba(0, 229, 255, 0.4); }
+
+        /* ================= MAIN UI ================= */
+        .menu-bg-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -3; opacity: 0; transition: opacity 1.5s ease-in-out, filter 0.5s ease; }
+        .menu-bg-video.show-bg { opacity: 1; } 
+        .cinematic-bg-overlay { position: absolute; inset: 0; background: radial-gradient(circle at center, transparent 0%, transparent 45%, rgba(0,0,0,0.4) 80%, rgba(0,0,0,0.85) 100%); z-index: -2; pointer-events: none; }
+
+        #main-app { position: absolute; inset: 0; display: flex; opacity: 0; visibility: hidden; transition: opacity 1s ease; }
+        #main-app.show-app { opacity: 1; visibility: visible; }
+
+        /* FLOATING 3D HEADER */
+        header { position: absolute; top: 50px; left: 60px; z-index: 20; display: flex; flex-direction: column; align-items: flex-start; gap: 0px; opacity: 0; transform: translateY(-20px); transition: opacity 1.5s ease, transform 1.5s cubic-bezier(0.2, 0.8, 0.2, 1); }
+        #main-app.show-app header { opacity: 1; transform: translateY(0); animation: floatingHeader 6s ease-in-out infinite alternate; }
+        @keyframes floatingHeader { 0% { transform: translateY(0px); } 100% { transform: translateY(-10px); } }
+        .header-logo { font-family: var(--font-3d); font-weight: 900; font-size: 3.5rem; letter-spacing: 10px; color: #fff; text-transform: uppercase; line-height: 1; text-shadow: 1px 1px 0px #0033aa, 2px 2px 0px #002288, 3px 3px 0px #001555, 4px 4px 0px #000c33, 5px 5px 15px rgba(0, 0, 0, 0.9), 0 0 30px rgba(0, 229, 255, 0.3); transform: perspective(600px) rotateX(15deg) rotateY(-5deg); transform-origin: left center; }
+        .header-title { font-size: 0.85rem; letter-spacing: 8px; color: var(--accent-cyan); font-weight: 500; font-family: var(--font-terminal); text-shadow: 0 0 10px rgba(0,229,255,0.5); margin-top: 5px; margin-left: 5px; transform: perspective(600px) rotateX(15deg) rotateY(-5deg); transform-origin: left center; }
+
+        /* ================= MAIN MENU CONTROLS ================= */
+        .menu-controls { position: absolute; bottom: 45px; left: 60px; z-index: 40; display: flex; align-items: center; justify-content: center; background: rgba(5, 10, 20, 0.6); backdrop-filter: blur(20px); padding: 12px 25px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); border-bottom: 2px solid rgba(0, 229, 255, 0.5); box-shadow: 0 10px 25px rgba(0,0,0,0.9); }
+        .ctrl-text-btn { background: transparent; border: none; color: #fff; font-family: var(--font-terminal); font-size: 1.1rem; letter-spacing: 4px; cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; font-weight: 600; text-shadow: 0 0 10px rgba(0,0,0,0.8); }
+        .ctrl-text-btn:hover { color: var(--accent-cyan); text-shadow: 0 0 15px rgba(0, 229, 255, 0.7); transform: scale(1.05); }
+
+        /* ================= MAIN MENU SETTINGS PANEL (Vertical) ================= */
+        .settings-panel {
+            position: absolute; z-index: 100005; width: 330px;
+            background: rgba(5, 10, 20, 0.88); backdrop-filter: blur(25px); 
+            border: 1px solid rgba(255,255,255,0.1); border-top: 3px solid var(--accent-cyan); border-radius: 8px; 
+            padding: 22px; box-shadow: 0 20px 50px rgba(0,0,0,1), 0 0 30px rgba(0, 229, 255, 0.15);
+            opacity: 0; visibility: hidden; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            max-height: 75vh; overflow-y: auto; overflow-x: hidden;
+        }
+        .settings-panel.show { opacity: 1; visibility: visible; transform: translateY(0); }
+        
+        #settings-panel-main { bottom: 110px; left: 60px; transform: translateY(20px); }
+
+        .settings-panel::-webkit-scrollbar { width: 4px; }
+        .settings-panel::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); border-radius: 2px; }
+        .settings-panel::-webkit-scrollbar-thumb { background: var(--primary-blue); border-radius: 2px; }
+        .settings-panel::-webkit-scrollbar-thumb:hover { background: var(--accent-cyan); }
+
+        .settings-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; margin-bottom: 15px; }
+        .settings-header span { font-family: var(--font-terminal); font-size: 1.05rem; color: #fff; letter-spacing: 2px; }
+        .btn-close-settings-ui { background: transparent; border: none; color: #888; font-size: 1.8rem; cursor: pointer; transition: color 0.3s, transform 0.3s; line-height: 1; }
+        .btn-close-settings-ui:hover { color: var(--accent-cyan); transform: rotate(90deg); }
+
+        .setting-section-title { font-family: var(--font-terminal); color: var(--accent-cyan); font-size: 0.75rem; letter-spacing: 2px; margin: 15px 0 10px 0; border-bottom: 1px solid rgba(0, 229, 255, 0.2); padding-bottom: 5px; text-transform: uppercase; }
+        .setting-section-title:first-of-type { margin-top: 0; }
+
+        .setting-row { display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px; }
+        .setting-row-inline { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .setting-row:last-child, .setting-row-inline:last-child { margin-bottom: 0; }
+        .setting-row label, .setting-row-inline label { font-family: var(--font-main); font-size: 0.75rem; color: #ccc; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600; }
+        
+        .custom-slider { -webkit-appearance: none; width: 100%; background: transparent; cursor: pointer; margin-top: 5px; }
+        .custom-slider::-webkit-slider-runnable-track { height: 4px; background: rgba(255,255,255,0.15); border-radius: 2px; }
+        .custom-slider::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: var(--accent-cyan); margin-top: -6px; box-shadow: 0 0 15px rgba(0, 229, 255, 0.5); transition: transform 0.2s, background 0.2s; }
+        .custom-slider::-webkit-slider-thumb:hover { transform: scale(1.3); background: #fff; }
+
+        .toggle-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); color: #888; padding: 6px 15px; font-family: var(--font-terminal); font-size: 0.85rem; font-weight: 600; cursor: pointer; border-radius: 4px; transition: all 0.3s ease; width: fit-content; letter-spacing: 2px; min-width: 60px; text-align: center; }
+        .toggle-btn.active { background: rgba(0, 85, 255, 0.2); border-color: var(--accent-cyan); color: var(--accent-cyan); text-shadow: 0 0 8px var(--accent-cyan); box-shadow: inset 0 0 10px rgba(0, 229, 255, 0.1); }
+
+
+        /* ================= VIDEO PLAYER SETTINGS BAR (Horizontal Timeline Style) ================= */
+        .video-horizontal-settings {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(30px);
+            z-index: 100005; background: rgba(5, 10, 20, 0.85); backdrop-filter: blur(25px);
+            border: 1px solid rgba(255,255,255,0.1); border-top: 2px solid var(--accent-cyan); border-radius: 8px;
+            padding: 12px 25px; box-shadow: 0 15px 40px rgba(0,0,0,0.9), 0 0 25px rgba(0, 229, 255, 0.15);
+            display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 25px;
+            opacity: 0; visibility: hidden; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            width: max-content; max-width: 95vw; overflow-x: auto;
+        }
+        
+        .video-horizontal-settings::-webkit-scrollbar { display: none; } /* Hide scrollbar for clean horizontal look */
+
+        .video-horizontal-settings.show { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
+        
+        .h-setting-group { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; flex-shrink: 0; }
+        .h-setting-group label { font-family: var(--font-main); font-size: 0.65rem; color: #ccc; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600; }
+        .h-custom-slider { width: 110px; margin-top: 0; }
+        
+        .divider-v { width: 1px; height: 35px; background: rgba(255,255,255,0.15); flex-shrink: 0; }
+
+        .speed-btn-group { display: flex; gap: 5px; }
+        .btn-speed { padding: 4px 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); color: #aaa; font-family: var(--font-terminal); font-size: 0.8rem; cursor: pointer; border-radius: 4px; transition: all 0.3s; }
+        .btn-speed:hover { background: rgba(255,255,255,0.1); color: #fff; }
+        .btn-speed.active { background: var(--primary-blue); border-color: var(--accent-cyan); color: #fff; box-shadow: 0 0 10px rgba(0, 229, 255, 0.4); font-weight: 700; }
+        
+        /* Reset Button specific style */
+        .btn-reset-default { padding: 4px 12px; margin-top: 2px; font-size: 0.8rem; border-color: rgba(255,255,255,0.3); }
+        .btn-reset-default:hover { background: #fff; color: #000; }
+
+
+        /* ================= 3D DRAGGABLE BLU-RAY CARD ================= */
+        .hero-card-container { position: absolute; bottom: 45px; right: 55px; width: var(--card-width); height: var(--card-height); perspective: 1500px; z-index: 50; cursor: grab; }
+        .hero-card-container:active { cursor: grabbing; }
+        .card-intro-animator { width: 100%; height: 100%; transform-style: preserve-3d; transform: translate3d(50px, 0, -500px) rotateY(-15deg); opacity: 0; transition: all 1s ease;}
+        .run-intro .card-intro-animator { animation: dvdCardFlyIn 2.2s cubic-bezier(0.2, 0.8, 0.2, 1) forwards 0.5s; }
+        @keyframes dvdCardFlyIn { 100% { transform: translate3d(0, 0, 0) rotateY(0deg); opacity: 1; } }
+
+        .animated-outer-box { position: relative; width: 100%; height: 100%; border-radius: 6px; padding: 2px; background: linear-gradient(135deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.05) 100%); display: flex; justify-content: center; align-items: center; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.5); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.4s ease, border-radius 1s ease, padding 1s ease; }
+        .animated-outer-box::after { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: linear-gradient(to bottom, transparent, rgba(0, 229, 255, 0.3), transparent); transform: rotate(45deg) translateY(-100%); pointer-events: none; z-index: 10; opacity: 0; }
+        .hero-card-container:not(.fullscreen-active):hover .animated-outer-box::after { opacity: 1; animation: scanLaser 2s linear infinite; }
+        @keyframes scanLaser { 0% { transform: rotate(45deg) translateY(-100%); } 100% { transform: rotate(45deg) translateY(100%); } }
+        .hero-card-container:not(.fullscreen-active):hover .animated-outer-box { transform: translateY(-8px) scale(1.04); box-shadow: 0 25px 50px rgba(0,0,0,1), 0 0 35px rgba(0, 229, 255, 0.3); background: linear-gradient(135deg, var(--accent-cyan) 0%, rgba(255,255,255,0.05) 100%); }
+        
+        .content-card { width: 100%; height: 100%; border-radius: 4px; position: relative; background: #000; z-index: 2; overflow: hidden; display: flex; justify-content: center; align-items: center; transition: border-radius 1s ease; }
+        .card-bg { position: absolute; inset: 0; background-size: cover; background-position: center; filter: grayscale(10%) contrast(1.1); transition: transform 0.8s ease, filter 0.8s ease, opacity 1s ease; z-index: 1; }
+        .hero-card-container:not(.fullscreen-active):hover .card-bg { transform: scale(1.06); filter: grayscale(0%) contrast(1.15); }
+        .card-overlay-dark { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.1) 100%); z-index: 2; pointer-events: none; transition: background 1s ease, opacity 1s ease; }
+        .hero-card-container:not(.fullscreen-active):hover .card-overlay-dark { opacity: 0.6; }
+
+        .btn-play { width: 50px; height: 50px; border-radius: 50%; background: rgba(5, 10, 20, 0.8); backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.4); display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.8); pointer-events: none; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.5s ease; z-index: 5; }
+        .btn-play::after { content: ''; border-style: solid; border-width: 7px 0 7px 10px; border-color: transparent transparent transparent #ffffff; margin-left: 4px; transition: border-color 0.4s ease; }
+        .hero-card-container:not(.fullscreen-active):hover .btn-play { transform: scale(1.15); background: var(--accent-cyan); border-color: var(--accent-cyan); box-shadow: 0 0 25px rgba(0, 229, 255, 0.7); }
+        .hero-card-container:not(.fullscreen-active):hover .btn-play::after { border-color: transparent transparent transparent #000; }
+
+        /* FULLSCREEN EXPANSION ANIMATION */
+        .hero-card-container.fullscreen-active { left: 0 !important; top: 0 !important; width: 100% !important; height: 100% !important; transform: none !important; z-index: 9998; cursor: default; }
+        .hero-card-container.fullscreen-active .animated-outer-box { padding: 0; border-radius: 0; box-shadow: none; background: #000; }
+        .hero-card-container.fullscreen-active .animated-outer-box::after { display: none; animation: none; }
+        .hero-card-container.fullscreen-active .content-card { border-radius: 0; background: #000; }
+        .hero-card-container.fullscreen-active .card-bg { opacity: 1; transform: scale(1); filter: grayscale(0%) contrast(1.1); } 
+        .hero-card-container.fullscreen-active .card-overlay-dark { opacity: 0; } 
+        .hero-card-container.fullscreen-active .btn-play { opacity: 0; transform: scale(0.2); } 
+        .hero-card-container.fullscreen-active .card-intro-animator { transform: none; animation: none; }
+
+        /* ================= OVERLAY MODALS ================= */
+        .prompt-modal-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(15px); z-index: 99999; display: flex; justify-content: center; align-items: center; opacity: 0; visibility: hidden; transition: opacity 0.4s ease, visibility 0.4s ease; }
+        .prompt-modal-overlay.show { opacity: 1; visibility: visible; }
+        .prompt-box { background: rgba(3, 5, 10, 0.95); border: 1px solid rgba(255,255,255,0.08); border-top: 2px solid var(--primary-blue); padding: 40px; text-align: left; width: 450px; max-width: 90%; box-shadow: 0 30px 60px rgba(0,0,0,1), 0 0 40px rgba(0, 85, 255, 0.1); transform: scale(0.95); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .prompt-modal-overlay.show .prompt-box { transform: scale(1); }
+        .prompt-title { font-family: var(--font-terminal); font-size: 1.2rem; color: #fff; margin-bottom: 12px; letter-spacing: 3px; text-transform: uppercase; }
+        .prompt-desc { font-size: 0.85rem; color: #888; margin-bottom: 30px; line-height: 1.6; }
+        .prompt-buttons { display: flex; flex-direction: column; gap: 12px; }
+        .btn-prompt { padding: 16px 20px; font-size: 0.85rem; font-family: var(--font-main); font-weight: 600; letter-spacing: 2px; cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; text-align: center; border: 1px solid transparent; background: transparent; color: #fff; }
+        .btn-resume-action { background: var(--primary-blue); border-color: var(--primary-blue); }
+        .btn-resume-action:hover { background: var(--accent-cyan); border-color: var(--accent-cyan); color: #000; box-shadow: 0 0 25px rgba(0, 229, 255, 0.5); }
+        .btn-restart-action { border-color: rgba(255,255,255,0.15); }
+        .btn-restart-action:hover { background: #fff; color: #000; }
+        .btn-close-prompt { position: absolute; top: 20px; right: 20px; font-size: 1.5rem; color: #555; cursor: pointer; background: transparent; border: none; transition: color 0.3s; }
+        .btn-close-prompt:hover { color: #fff; }
+
+        /* ================= FULLSCREEN VIDEO OVERLAY ================= */
+        .video-modal-overlay { position: absolute; inset: 0; background-color: transparent; z-index: 9999; display: flex; justify-content: center; align-items: center; opacity: 0; visibility: hidden; transition: opacity 1s ease, visibility 1s ease; }
+        .video-modal-overlay.show { opacity: 1; visibility: visible; }
+        .video-container { position: relative; width: 100%; height: 100%; background-color: #000; overflow: hidden; }
+        video { width: 100%; height: 100%; object-fit: contain; pointer-events: none; transition: filter 0.3s ease; }
+        
+        .btn-close-video { position: absolute; top: 30px; right: 40px; font-size: 2.2rem; color: rgba(255,255,255,0.5); background: transparent; border: none; font-weight: 300; cursor: pointer; z-index: 10002; transition: all 0.4s ease, opacity 0.6s ease; }
+        .btn-close-video:hover { color: #fff; transform: rotate(90deg) scale(1.2); text-shadow: 0 0 20px rgba(255,255,255,0.9); }
+        
+        .btn-video-settings { position: absolute; top: 35px; left: 40px; z-index: 10002; font-size: 0.95rem; transition: all 0.4s ease, opacity 0.6s ease; }
+        
+        .video-modal-overlay.hide-controls .btn-close-video,
+        .video-modal-overlay.hide-controls .btn-video-settings { 
+            opacity: 0 !important; transform: translateY(-20px); pointer-events: none; 
+        }
+
+        @media (max-width: 768px) {
+            :root { --card-width: 160px; --card-height: 90px; } 
+            header { top: 25px; left: 20px; } 
+            .header-logo { font-size: 2rem; letter-spacing: 4px; }
+            .header-title { font-size: 0.55rem; letter-spacing: 3px; margin-top: 2px;}
+            
+            .menu-controls { bottom: 20px; left: 20px; padding: 10px 18px; }
+            .ctrl-text-btn { font-size: 0.95rem; }
+            
+            #settings-panel-main { bottom: 75px; left: 20px; width: 270px; padding: 18px; max-height: 65vh; }
+            
+            /* Mobile tweaks for horizontal video settings */
+            .video-horizontal-settings { bottom: 20px; padding: 10px 15px; gap: 15px; border-radius: 6px; border-top: 1px solid var(--accent-cyan); justify-content: flex-start; }
+            .h-setting-group label { font-size: 0.55rem; }
+            .h-custom-slider { width: 75px; }
+            .btn-speed { padding: 4px 8px; font-size: 0.75rem; }
+            .divider-v { height: 25px; }
+            .btn-close-settings-ui { font-size: 1.4rem; }
+
+            .hero-card-container { bottom: 20px; right: 20px; }
+            .btn-play { width: 35px; height: 35px; } .btn-play::after { border-width: 5px 0 5px 8px; margin-left: 3px; }
+            .btn-close-video { top: 15px; right: 20px; font-size: 1.8rem; }
+            .btn-video-settings { top: 22px; left: 20px; font-size: 0.8rem; }
+            .prompt-box { padding: 25px; } .prompt-title { font-size: 0.95rem; }
+            
+            #floating-loader { bottom: 20px; right: 20px; }
+            .master-spinner { width: 30px; height: 30px; } .loading-status-text { font-size: 0.6rem; }
+            .disclaimer-text { font-size: 0.85rem; padding: 20px; } .disclaimer-text strong.main-title { font-size: 1.1rem; }
+            .logo-text { font-size: 6vw !important; }
+        }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+
+    <div id="master-16-9-container">
+
+        <button id="start-button">Enter Studio</button>
+
+        <!-- SOLID BLACK SCREEN FOR INITIAL LOAD -->
+        <div id="initial-black-screen"></div>
+
+        <!-- FLOATING LOADER -->
+        <div id="floating-loader">
+            <div class="loading-status-text" id="master-loading-text">INITIALIZING SECURE ENVIRONMENT</div>
+            <div class="master-spinner"></div>
+        </div>
+        
+        <!-- DVD STYLE WARNING -->
+        <div id="preloader">
+            <div class="disclaimer-text" id="disclaimer-text">
+                <strong class="main-title">ATTENTION</strong>
+                The motion picture contained in this secure stream is protected under copyright laws. This exclusive presentation is the sole intellectual property of <span class="highlight-text">Loversofboots Company</span>. Unauthorized duplication, distribution, or exhibition may result in civil liability and criminal prosecution.
+            </div>
+        </div>
+
+        <!-- SPLASH SCREEN -->
+        <div id="logo-screen">
+            <img src="https://cgasansol.github.io/drmvideo/splash_blanca.jpg" class="company-logo-img" alt="Splash">
+        </div>
+
+        <!-- LETTERBOX INTRO -->
+        <div id="intro-section"><div class="bar bar-top"></div><div class="bar bar-bottom"></div><div class="logo-text">LOVERS OF BOOTS</div></div>
+        <div id="black-transition"></div>
+
+        <!-- MAIN UI BACKGROUND & EFFECTS -->
+        <video id="menu-bg-video" class="menu-bg-video" src="https://cgasansol.github.io/drmvideo/menuvideo.webm" loop muted playsinline></video>
+        <div class="scanlines" id="fx-scanlines"></div>
+        <div class="cinematic-bg-overlay"></div>
+        <div class="ambient-glow" id="fx-glow"></div>
+        <div class="particles-container" id="fx-particles"></div>
+
+        <div id="main-app">
+            <header>
+                <div class="header-logo">BLANCA</div>
+                <div class="header-title">IN EXTREME THIGH HIGH CROCH BOOTS</div>
+            </header>
+
+            <!-- MAIN MENU SETTINGS BTN -->
+            <div class="menu-controls">
+                <button id="btn-settings-main" class="ctrl-text-btn">SETTINGS</button>
+            </div>
+
+            <!-- DRAGGABLE HERO CARD -->
+            <div class="hero-card-container" id="hero-card">
+                <div class="card-intro-animator">
+                    <div class="animated-outer-box" id="clickable-card-wrapper">
+                        <div class="content-card">
+                            <div class="card-bg" style="background-image: url('https://cgasansol.github.io/drmvideo/button.jpg');"></div>
+                            <div class="card-overlay-dark"></div>
+                            <button class="btn-play"></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= MAIN MENU SETTINGS PANEL (Vertical) ================= -->
+        <div id="settings-panel-main" class="settings-panel">
+            <div class="settings-header">
+                <span>SYSTEM SETTINGS</span>
+                <button class="btn-close-settings-ui" id="btn-close-settings-main">&times;</button>
+            </div>
+            
+            <div class="setting-section-title">MEDIA</div>
+            <div class="setting-row">
+                <label>BGM LEVEL</label>
+                <input type="range" id="setting-bgm-vol" class="custom-slider" min="0" max="1" step="0.01" value="0.8">
+            </div>
+            <div class="setting-row">
+                <label>BG BRIGHTNESS</label>
+                <input type="range" id="setting-bg-bright" class="custom-slider" min="0" max="2" step="0.1" value="1">
+            </div>
+            <div class="setting-row-inline">
+                <label>BG VIDEO</label>
+                <button id="btn-toggle-bg" class="toggle-btn active">ON</button>
+            </div>
+
+            <div class="setting-section-title">UI EFFECTS</div>
+            <div class="setting-row-inline">
+                <label>CINEMATIC DUST</label>
+                <button id="btn-toggle-dust" class="toggle-btn active">ON</button>
+            </div>
+            <div class="setting-row-inline">
+                <label>CRT SCANLINES</label>
+                <button id="btn-toggle-scanlines" class="toggle-btn active">ON</button>
+            </div>
+            <div class="setting-row-inline">
+                <label>AMBIENT GLOW</label>
+                <button id="btn-toggle-glow" class="toggle-btn active">ON</button>
+            </div>
+        </div>
+
+        <!-- RESUME / RESTART OSD MODAL -->
+        <div class="prompt-modal-overlay" id="prompt-modal">
+            <div class="prompt-box">
+                <button class="btn-close-prompt" id="btn-close-prompt">&times;</button>
+                <div class="prompt-title">Playback Status</div>
+                <div class="prompt-desc">System detects an existing session. Select your playback preference below.</div>
+                <div class="prompt-buttons">
+                    <button class="btn-prompt btn-resume-action" id="btn-resume">Resume Feature</button>
+                    <button class="btn-prompt btn-restart-action" id="btn-restart">Play From Start</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= FULLSCREEN VIDEO OVERLAY ================= -->
+        <div id="video-overlay" class="video-modal-overlay">
+            <!-- SETTINGS BTN FOR VIDEO -->
+            <button id="btn-settings-video" class="ctrl-text-btn btn-video-settings">SETTINGS</button>
+            <button class="btn-close-video" id="btn-close-video" title="Close Video">&times;</button>
+            
+            <div class="video-container">
+                <video id="video" crossorigin="anonymous" playsinline></video>
+            </div>
+
+            <!-- ================= NEW HORIZONTAL VIDEO SETTINGS PANEL ================= -->
+            <div id="settings-panel-video" class="video-horizontal-settings">
+                
+                <div class="h-setting-group">
+                    <label>VOLUME</label>
+                    <input type="range" id="video-vol-slider" class="custom-slider h-custom-slider" min="0" max="1" step="0.05" value="1">
+                </div>
+                
+                <div class="divider-v"></div>
+                
+                <div class="h-setting-group">
+                    <label>BRIGHTNESS</label>
+                    <input type="range" id="video-bright-slider" class="custom-slider h-custom-slider" min="0.3" max="2" step="0.1" value="1">
+                </div>
+
+                <div class="divider-v"></div>
+
+                <div class="h-setting-group">
+                    <label>SPEED</label>
+                    <div class="speed-btn-group">
+                        <button class="btn-speed" data-speed="0.75">0.75x</button>
+                        <button class="btn-speed active" data-speed="1.0">1.0x</button>
+                        <button class="btn-speed" data-speed="1.25">1.25x</button>
+                        <button class="btn-speed" data-speed="1.5">1.5x</button>
+                    </div>
+                </div>
+
+                <div class="divider-v"></div>
+
+                <div class="h-setting-group">
+                    <label>MUTE</label>
+                    <button id="btn-video-mute" class="toggle-btn" style="padding: 4px 15px; margin-top: 2px;">OFF</button>
+                </div>
+
+                <div class="divider-v"></div>
+
+                <!-- NEW RESET BUTTON -->
+                <div class="h-setting-group">
+                    <label>RESET</label>
+                    <button id="btn-video-reset" class="toggle-btn btn-reset-default">DEFAULT</button>
+                </div>
+                
+                <!-- Inner Close button -->
+                <button class="btn-close-settings-ui" id="btn-close-settings-video" style="margin-left: 10px;">&times;</button>
+
+            </div>
+        </div>
+
+    </div> 
+
+    <script>
+        // Anti-Piracy Block
+        document.addEventListener('copy', (e) => e.preventDefault()); document.addEventListener('cut', (e) => e.preventDefault());
+        document.addEventListener('paste', (e) => e.preventDefault()); document.addEventListener('selectstart', (e) => e.preventDefault());
+        document.addEventListener('contextmenu', (e) => e.preventDefault());
+        document.addEventListener('keydown', (e) => { if (e.ctrlKey && ['c','x','v','u','s','a'].includes(e.key.toLowerCase())) e.preventDefault(); if (e.key === 'F12') e.preventDefault(); });
+
+        // DUST PARTICLES GENERATOR
+        const particlesContainer = document.getElementById('fx-particles');
+        for(let i=0; i<40; i++){
+            let p = document.createElement('div');
+            p.className = 'particle';
+            let size = Math.random() * 3 + 1;
+            p.style.width = size + 'px'; p.style.height = size + 'px';
+            p.style.left = Math.random() * 100 + '%';
+            p.style.top = (Math.random() * 100 + 10) + '%';
+            p.style.animationDuration = (Math.random() * 15 + 10) + 's';
+            p.style.animationDelay = (Math.random() * 5) + 's';
+            particlesContainer.appendChild(p);
+        }
+
+        // Shaka Player Setup
+        const manifestUri = 'https://koelmallicklovers.github.io/loversofboots/manifest.mpd'; 
+        const licenseServerUri = 'https://my-license-server-n7xt.onrender.com/get-license';
+        const video = document.getElementById('video');
+        let player;
+
+        function initApp() {
+            shaka.polyfill.installAll();
+            if (shaka.Player.isBrowserSupported()) {
+                player = new shaka.Player(video);
+                player.configure({ drm: { servers: { 'org.w3.clearkey': licenseServerUri } }, streaming: { bufferingGoal: 20 } });
+            }
+        }
+        document.addEventListener('DOMContentLoaded', initApp);
+
+        // Audio & BGM Setup
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playCinematicWhoosh() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const time = audioCtx.currentTime; const bufferSize = audioCtx.sampleRate * 0.8;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate); const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1; 
+            const noise = audioCtx.createBufferSource(); noise.buffer = buffer;
+            const noiseFilter = audioCtx.createBiquadFilter(); noiseFilter.type = 'bandpass';
+            noiseFilter.frequency.setValueAtTime(80, time); noiseFilter.frequency.exponentialRampToValueAtTime(600, time + 0.15); noiseFilter.frequency.exponentialRampToValueAtTime(80, time + 0.6);   
+            const osc = audioCtx.createOscillator(); osc.type = 'sine'; osc.frequency.setValueAtTime(100, time); osc.frequency.exponentialRampToValueAtTime(25, time + 0.6); 
+            const masterGain = audioCtx.createGain(); masterGain.gain.setValueAtTime(0, time); masterGain.gain.linearRampToValueAtTime(0.35, time + 0.03); masterGain.gain.exponentialRampToValueAtTime(0.01, time + 0.8); 
+            noise.connect(noiseFilter); noiseFilter.connect(masterGain); osc.connect(masterGain); masterGain.connect(audioCtx.destination);
+            noise.start(time); osc.start(time); noise.stop(time + 0.8); osc.stop(time + 0.8);
+        }
+
+        const BGM = {
+            audio: new Audio('https://cgasansol.github.io/drmvideo/bgm.mp3'), maxVol: 0.8, intervalId: null,
+            play: function() {
+                clearInterval(this.intervalId); if (this.audio.paused) this.audio.play().catch(()=>{});
+                this.intervalId = setInterval(() => { let newVol = this.audio.volume + 0.03; if (newVol >= this.maxVol - 0.01) { this.audio.volume = this.maxVol; clearInterval(this.intervalId); } else this.audio.volume = newVol; }, 40);
+            },
+            pause: function() {
+                clearInterval(this.intervalId); this.intervalId = setInterval(() => { let newVol = this.audio.volume - 0.05; if (newVol <= 0.02) { this.audio.volume = 0; this.audio.pause(); clearInterval(this.intervalId); } else this.audio.volume = newVol; }, 30);
+            }
+        };
+        BGM.audio.addEventListener('ended', () => { setTimeout(() => { BGM.audio.currentTime = 0; BGM.play(); }, 4000); });
+
+        // ================= 1. MAIN MENU SETTINGS LOGIC =================
+        const settingsBtnMain = document.getElementById('btn-settings-main');
+        const settingsPanelMain = document.getElementById('settings-panel-main');
+        const closeSettingsMainBtn = document.getElementById('btn-close-settings-main');
+        
+        const bgmVolSlider = document.getElementById('setting-bgm-vol');
+        const bgBrightSlider = document.getElementById('setting-bg-bright');
+        const bgToggleBtn = document.getElementById('btn-toggle-bg');
+        const menuBgVideo = document.getElementById('menu-bg-video');
+
+        const fxDustBtn = document.getElementById('btn-toggle-dust');
+        const fxScanlinesBtn = document.getElementById('btn-toggle-scanlines');
+        const fxGlowBtn = document.getElementById('btn-toggle-glow');
+        const fxParticlesContainer = document.getElementById('fx-particles');
+        const fxScanlinesContainer = document.getElementById('fx-scanlines');
+        const fxGlowContainer = document.getElementById('fx-glow');
+
+        settingsBtnMain.addEventListener('click', (e) => {
+            e.stopPropagation(); playCinematicWhoosh();
+            settingsPanelMain.classList.toggle('show');
+        });
+        closeSettingsMainBtn.addEventListener('click', () => {
+            playCinematicWhoosh(); settingsPanelMain.classList.remove('show');
+        });
+
+        bgmVolSlider.addEventListener('input', (e) => { BGM.maxVol = parseFloat(e.target.value); if (!BGM.audio.paused) BGM.audio.volume = BGM.maxVol; });
+        bgBrightSlider.addEventListener('input', (e) => { menuBgVideo.style.filter = `brightness(${e.target.value})`; });
+
+        function toggleEffect(btn, targetElement, customLogic = null) {
+            playCinematicWhoosh();
+            if (btn.classList.contains('active')) {
+                btn.classList.remove('active'); btn.innerText = 'OFF';
+                if(targetElement) targetElement.classList.add('hidden');
+                if(customLogic) customLogic(false);
+            } else {
+                btn.classList.add('active'); btn.innerText = 'ON';
+                if(targetElement) targetElement.classList.remove('hidden');
+                if(customLogic) customLogic(true);
+            }
+        }
+
+        bgToggleBtn.addEventListener('click', () => {
+            toggleEffect(bgToggleBtn, null, (isOn) => {
+                if(isOn) { menuBgVideo.play(); menuBgVideo.style.opacity = '1'; } 
+                else { menuBgVideo.style.opacity = '0'; setTimeout(() => menuBgVideo.pause(), 1500); }
+            });
+        });
+        
+        fxDustBtn.addEventListener('click', () => toggleEffect(fxDustBtn, fxParticlesContainer));
+        fxScanlinesBtn.addEventListener('click', () => toggleEffect(fxScanlinesBtn, fxScanlinesContainer));
+        fxGlowBtn.addEventListener('click', () => toggleEffect(fxGlowBtn, fxGlowContainer));
+
+        // ================= 2. VIDEO PLAYER SETTINGS LOGIC (Horizontal Bar) =================
+        const settingsBtnVideo = document.getElementById('btn-settings-video');
+        const settingsPanelVideo = document.getElementById('settings-panel-video');
+        const closeSettingsVideoBtn = document.getElementById('btn-close-settings-video');
+        
+        const videoVolSlider = document.getElementById('video-vol-slider');
+        const videoBrightSlider = document.getElementById('video-bright-slider');
+        const videoMuteBtn = document.getElementById('btn-video-mute');
+        const videoResetBtn = document.getElementById('btn-video-reset');
+        const speedButtons = document.querySelectorAll('.btn-speed');
+
+        settingsBtnVideo.addEventListener('click', (e) => {
+            e.stopPropagation(); playCinematicWhoosh();
+            settingsPanelVideo.classList.toggle('show');
+            resetControlsTimeout();
+        });
+        closeSettingsVideoBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); playCinematicWhoosh();
+            settingsPanelVideo.classList.remove('show');
+            resetControlsTimeout();
+        });
+
+        // Video Features Logic
+        videoVolSlider.addEventListener('input', (e) => {
+            video.volume = parseFloat(e.target.value);
+            if(video.volume === 0) {
+                videoMuteBtn.classList.add('active'); videoMuteBtn.innerText = 'ON';
+            } else {
+                videoMuteBtn.classList.remove('active'); videoMuteBtn.innerText = 'OFF';
+            }
+        });
+
+        videoBrightSlider.addEventListener('input', (e) => {
+            video.style.filter = `brightness(${e.target.value})`;
+        });
+
+        speedButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation(); playCinematicWhoosh();
+                speedButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                video.playbackRate = parseFloat(btn.getAttribute('data-speed'));
+            });
+        });
+
+        videoMuteBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); playCinematicWhoosh();
+            video.muted = !video.muted;
+            if (video.muted) {
+                videoMuteBtn.classList.add('active'); videoMuteBtn.innerText = 'ON';
+            } else {
+                videoMuteBtn.classList.remove('active'); videoMuteBtn.innerText = 'OFF';
+            }
+        });
+
+        // ================= RESET DEFAULT BUTTON LOGIC =================
+        videoResetBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); playCinematicWhoosh();
+            
+            // Volume to Max
+            videoVolSlider.value = 1;
+            video.volume = 1;
+            
+            // Brightness to Normal
+            videoBrightSlider.value = 1;
+            video.style.filter = 'brightness(1)';
+            
+            // Speed to Normal (1.0x)
+            video.playbackRate = 1.0;
+            speedButtons.forEach(b => b.classList.remove('active'));
+            document.querySelector('.btn-speed[data-speed="1.0"]').classList.add('active');
+            
+            // Unmute Audio
+            video.muted = false;
+            videoMuteBtn.classList.remove('active'); 
+            videoMuteBtn.innerText = 'OFF';
+            
+            // Button click animation effect
+            videoResetBtn.style.transform = 'scale(0.9)';
+            setTimeout(() => { videoResetBtn.style.transform = 'scale(1)'; }, 150);
+        });
+
+        // Global Click Outside
+        document.addEventListener('click', (e) => {
+            if (settingsPanelMain.classList.contains('show') && !settingsPanelMain.contains(e.target) && e.target !== settingsBtnMain) {
+                settingsPanelMain.classList.remove('show');
+            }
+            if (settingsPanelVideo.classList.contains('show') && !settingsPanelVideo.contains(e.target) && e.target !== settingsBtnVideo) {
+                settingsPanelVideo.classList.remove('show');
+            }
+        });
+
+        // ================= MAIN FLOW =================
+        const startBtn = document.getElementById('start-button'), initialBlackScreen = document.getElementById('initial-black-screen'), floatingLoader = document.getElementById('floating-loader'), loaderText = document.getElementById('master-loading-text');
+        const preloader = document.getElementById('preloader'), logoScreen = document.getElementById('logo-screen');
+        const intro = document.getElementById('intro-section'), mainApp = document.getElementById('main-app'), blackTransition = document.getElementById('black-transition'); 
+        const fullscreenContainer = document.documentElement; 
+        let isAnimatingEntry = true;
+
+        startBtn.addEventListener('click', async () => {
+            startBtn.style.display = 'none'; if(audioCtx.state === 'suspended') audioCtx.resume();
+            try {
+                if (fullscreenContainer.requestFullscreen) await fullscreenContainer.requestFullscreen();
+                else if (fullscreenContainer.webkitRequestFullscreen) await fullscreenContainer.webkitRequestFullscreen();
+                if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape');
+            } catch(e) {}
+
+            initialBlackScreen.style.display = 'block'; floatingLoader.style.display = 'flex'; loaderText.innerText = 'INITIALIZING SECURE ENVIRONMENT';
+            
+            setTimeout(() => {
+                floatingLoader.style.opacity = '0'; initialBlackScreen.style.opacity = '0';
+                setTimeout(() => {
+                    floatingLoader.style.display = 'none'; floatingLoader.style.opacity = '1'; initialBlackScreen.style.display = 'none';
+                    
+                    preloader.style.display = 'flex'; setTimeout(() => { preloader.style.opacity = '1'; document.getElementById('disclaimer-text').classList.add('active'); }, 50);
+                    
+                    setTimeout(() => {
+                        preloader.style.opacity = '0'; 
+                        setTimeout(() => {
+                            preloader.style.display = 'none'; 
+                            logoScreen.style.display = 'flex'; setTimeout(() => { logoScreen.style.opacity = '1'; }, 50);
+                            
+                            setTimeout(() => {
+                                floatingLoader.style.display = 'flex'; loaderText.innerText = 'DECRYPTING STREAM DATA';
+                                player.load(manifestUri).catch(e => console.error("Load Error", e));
+
+                                const randomLoadTime = Math.floor(Math.random() * (12000 - 6000 + 1)) + 6000;
+                                
+                                setTimeout(() => {
+                                    floatingLoader.style.opacity = '0'; logoScreen.style.opacity = '0'; 
+                                    setTimeout(() => {
+                                        floatingLoader.style.display = 'none'; logoScreen.style.display = 'none'; 
+                                        intro.style.display = 'flex'; document.body.classList.add('page-loaded'); playCinematicWhoosh(); 
+                                        
+                                        setTimeout(() => {
+                                            intro.style.opacity = '0'; 
+                                            setTimeout(() => {
+                                                intro.style.display = 'none'; blackTransition.style.opacity = '0'; 
+                                                mainApp.classList.add('show-app'); menuBgVideo.classList.add('show-bg'); 
+                                                if(bgToggleBtn.classList.contains('active')) menuBgVideo.play().catch(e => {});
+                                                
+                                                BGM.audio.volume = 0; BGM.play(); document.getElementById('hero-card').classList.add('run-intro');
+                                                setTimeout(() => { blackTransition.style.display = 'none'; isAnimatingEntry = false; }, 3000);
+                                            }, 1500); 
+                                        }, 4000); 
+                                    }, 1000); 
+                                }, randomLoadTime); 
+                            }, 6000); 
+                        }, 1000); 
+                    }, 6000); 
+                }, 1000); 
+            }, 5000); 
+        });
+
+        // ================= DRAG & DROP =================
+        const heroCard = document.getElementById('hero-card'); const masterContainer = document.getElementById('master-16-9-container');
+        let isDraggingHero = false; let didMoveHero = false; let startXHero, startYHero, initialLeft, initialTop;
+
+        function initDrag(e) {
+            if (isAnimatingEntry || heroCard.classList.contains('fullscreen-active') || e.target.closest('.menu-controls') || e.target.closest('.settings-panel') || e.target.closest('.prompt-modal-overlay') || e.target.closest('.video-horizontal-settings')) return;
+            let clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX; let clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+            const rect = heroCard.getBoundingClientRect(); const containerRect = masterContainer.getBoundingClientRect();
+            if (!heroCard.style.left) {
+                heroCard.style.left = (rect.left - containerRect.left) + 'px'; heroCard.style.top = (rect.top - containerRect.top) + 'px';
+                heroCard.style.bottom = 'auto'; heroCard.style.right = 'auto';
+            }
+            startXHero = clientX; startYHero = clientY; initialLeft = parseFloat(heroCard.style.left); initialTop = parseFloat(heroCard.style.top);
+            isDraggingHero = true; didMoveHero = false;
+        }
+
+        function drag(e) {
+            if (!isDraggingHero) return;
+            if(e.type.includes('touch')) e.preventDefault(); 
+            let clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX; let clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+            let dx = clientX - startXHero; let dy = clientY - startYHero;
+            if (Math.abs(dx) > 3 || Math.abs(dy) > 3) didMoveHero = true; 
+            let newLeft = initialLeft + dx; let newTop = initialTop + dy;
+            const cWidth = masterContainer.offsetWidth; const cHeight = masterContainer.offsetHeight;
+            const cardWidth = heroCard.offsetWidth; const cardHeight = heroCard.offsetHeight;
+            if (newLeft < 0) newLeft = 0; if (newTop < 0) newTop = 0;
+            if (newLeft + cardWidth > cWidth) newLeft = cWidth - cardWidth;
+            if (newTop + cardHeight > cHeight) newTop = cHeight - cardHeight;
+            heroCard.style.left = newLeft + 'px'; heroCard.style.top = newTop + 'px';
+        }
+
+        function stopDrag() { if (!isDraggingHero) return; isDraggingHero = false; }
+        heroCard.addEventListener('mousedown', initDrag); window.addEventListener('mousemove', drag); window.addEventListener('mouseup', stopDrag);
+        heroCard.addEventListener('touchstart', initDrag, {passive: true}); window.addEventListener('touchmove', drag, {passive: false}); window.addEventListener('touchend', stopDrag);
+
+        window.addEventListener('resize', () => { if(!heroCard.classList.contains('fullscreen-active')) { heroCard.style.left = ''; heroCard.style.top = ''; heroCard.style.bottom = '45px'; heroCard.style.right = '55px'; } });
+
+        // ================= FULLSCREEN VIDEO & AUTO-HIDE LOGIC =================
+        const clickableCardWrapper = document.getElementById('clickable-card-wrapper');
+        const videoOverlay = document.getElementById('video-overlay');
+        const closeBtn = document.getElementById('btn-close-video');
+        const promptModal = document.getElementById('prompt-modal');
+        let hideControlsTimeout;
+
+        function resetControlsTimeout() {
+            videoOverlay.classList.remove('hide-controls');
+            clearTimeout(hideControlsTimeout);
+            
+            // Do not hide controls if the horizontal setting bar is open
+            if(settingsPanelVideo.classList.contains('show')) return; 
+            
+            hideControlsTimeout = setTimeout(() => {
+                if (videoOverlay.classList.contains('show')) {
+                    videoOverlay.classList.add('hide-controls');
+                }
+            }, 5000);
+        }
+
+        settingsPanelVideo.addEventListener('mousemove', resetControlsTimeout);
+        settingsPanelVideo.addEventListener('touchstart', resetControlsTimeout, {passive: true});
+        settingsPanelVideo.addEventListener('click', resetControlsTimeout);
+
+        videoOverlay.addEventListener('mousemove', resetControlsTimeout);
+        videoOverlay.addEventListener('touchstart', resetControlsTimeout, {passive: true});
+        videoOverlay.addEventListener('click', resetControlsTimeout);
+
+        clickableCardWrapper.addEventListener('click', (e) => {
+            if (isAnimatingEntry || didMoveHero || heroCard.classList.contains('fullscreen-active')) { e.preventDefault(); e.stopPropagation(); return; }
+            playCinematicWhoosh(); settingsPanelMain.classList.remove('show'); 
+            if (video.currentTime > 2) promptModal.classList.add('show');
+            else executeExpandAndPlay(0);
+        });
+
+        function executeExpandAndPlay(startTime = null) {
+            promptModal.classList.remove('show'); BGM.pause(); 
+            if(bgToggleBtn.classList.contains('active')) menuBgVideo.pause(); 
+            if (startTime !== null) video.currentTime = startTime; 
+            
+            heroCard.style.transition = 'all 1s cubic-bezier(0.86, 0, 0.07, 1)';
+            heroCard.classList.add('fullscreen-active');
+            
+            setTimeout(() => { 
+                videoOverlay.classList.add('show'); video.play(); resetControlsTimeout(); 
+            }, 2000); 
+        }
+
+        document.getElementById('btn-resume').addEventListener('click', () => { playCinematicWhoosh(); executeExpandAndPlay(); });
+        document.getElementById('btn-restart').addEventListener('click', () => { playCinematicWhoosh(); executeExpandAndPlay(0); });
+        document.getElementById('btn-close-prompt').addEventListener('click', () => { promptModal.classList.remove('show'); });
+
+        closeBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); playCinematicWhoosh(); video.pause(); 
+            clearTimeout(hideControlsTimeout); videoOverlay.classList.remove('hide-controls'); videoOverlay.classList.remove('show'); 
+            settingsPanelVideo.classList.remove('show'); 
+            
+            setTimeout(() => {
+                heroCard.classList.remove('fullscreen-active');
+                heroCard.style.left = ''; heroCard.style.top = ''; heroCard.style.bottom = '45px'; heroCard.style.right = '55px';
+                setTimeout(() => { heroCard.style.transition = ''; }, 1000);
+                BGM.play(); if(bgToggleBtn.classList.contains('active')) menuBgVideo.play(); 
+            }, 1000); 
+        });
+    </script>
+</body>
+</html>
