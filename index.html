@@ -71,15 +71,11 @@
         .particle { position: absolute; background: #fff; border-radius: 50%; opacity: 0; box-shadow: 0 0 8px rgba(255,255,255,0.8); animation: floatDust linear infinite; }
         @keyframes floatDust { 0% { transform: translateY(0) scale(0.5); opacity: 0; } 50% { opacity: 0.5; } 100% { transform: translateY(-20vh) scale(1.5); opacity: 0; } }
 
-        /* ================= FLOATING MASTER LOADER ================= */
+        /* ================= FLOATING MASTER LOADER (INTRO) ================= */
         #initial-black-screen { position: absolute; inset: 0; background: #000; z-index: 9999998; display: none; opacity: 1; transition: opacity 1s ease; }
         
-        #floating-loader { position: absolute; bottom: 8%; right: 5%; z-index: 9999999; display: none; align-items: center; flex-direction: row; gap: 10px; opacity: 1; transition: opacity 1s ease; background: transparent; padding: 10px; }
+        #floating-loader { position: absolute; bottom: 8%; right: 5%; z-index: 9999999; display: none; align-items: center; justify-content: center; opacity: 1; transition: opacity 1s ease; background: transparent; padding: 10px; }
         
-        .loading-status-text { font-family: var(--font-terminal); font-size: 0.65rem; color: var(--accent-dim); text-transform: uppercase; letter-spacing: 4px; white-space: nowrap; text-shadow: none; }
-        .loading-status-text::after { content: '█'; animation: blinkCursor 1s step-end infinite; margin-left: 8px; color: var(--accent-main); opacity: 0.7; margin-right: 5px;}
-        @keyframes blinkCursor { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
-
         .master-spinner { 
             width: 20px; height: 20px; border-radius: 50%; position: relative;
             background: conic-gradient(from 0deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.05) 40%, rgba(255,255,255,0.6) 80%, rgba(255,255,255,1) 100%);
@@ -107,9 +103,21 @@
         
         .scene-transition-loader {
             position: absolute; bottom: 8%; right: 5%; display: flex; align-items: center; gap: 12px;
-            background: rgba(0,0,0,0.65); padding: 8px 18px; border-radius: 4px; 
-            border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            background: transparent; 
+            border: none; 
+            box-shadow: none; 
+        }
+
+        /* ONLY TEXT BOLDED AND BRIGHTENED */
+        .loading-status-text { 
+            font-family: var(--font-terminal); 
+            font-size: 0.55rem; 
+            color: #ffffff; /* Brighter color */
+            font-weight: 900; /* BOLD TEXT */
+            text-transform: uppercase; 
+            letter-spacing: 4px; 
+            white-space: nowrap; 
+            text-shadow: 0 2px 5px rgba(0,0,0,0.9); 
         }
 
         /* ================= MENU INTRO TRANSITION OVERLAY ================= */
@@ -133,7 +141,28 @@
         /* ================= DISCLAIMER SCREEN ================= */
         #preloader { position: absolute; inset: 0; background: #010101; z-index: 9999997; display: none; justify-content: center; align-items: center; opacity: 0; transition: opacity 1s ease; }
         .disclaimer-text { font-family: var(--font-terminal); font-size: 0.9rem; line-height: 1.8; color: #888; text-align: left; max-width: 700px; padding: 40px; border-radius: 4px; background: transparent; border: 1px solid rgba(255,255,255,0.05); }
-        .disclaimer-text strong.main-title { font-size: 1rem; color: #fff; letter-spacing: 6px; margin-bottom: 25px; display: inline-block; border-bottom: 1px solid var(--accent-main); padding-bottom: 5px; text-transform: uppercase; }
+        
+        /* METALLIC FADE ANIMATION FOR "ATTENTION" */
+        .disclaimer-text strong.main-title { 
+            font-size: 1.2rem; 
+            letter-spacing: 6px; 
+            margin-bottom: 25px; 
+            display: inline-block; 
+            border-bottom: 1px solid rgba(255,255,255,0.3); 
+            padding-bottom: 5px; 
+            text-transform: uppercase; 
+            background: linear-gradient(90deg, #555555 0%, #ffffff 50%, #555555 100%);
+            background-size: 200% auto;
+            color: transparent;
+            -webkit-background-clip: text;
+            background-clip: text;
+            animation: metallicFade 3s linear infinite;
+        }
+        @keyframes metallicFade {
+            0% { background-position: -100% center; }
+            100% { background-position: 200% center; }
+        }
+
         .highlight-text { color: #fff; font-weight: 600; } 
 
         /* ================= SPLASH & INTRO ================= */
@@ -413,7 +442,6 @@
             .btn-video-settings { top: 15px; left: 20px; font-size: 0.55rem; padding: 4px 10px; }
             
             .prompt-box { padding: 25px; width: 280px; } .prompt-title { font-size: 0.85rem; } .prompt-buttons { flex-direction: column; }
-            .master-spinner { width: 18px; height: 18px; } .loading-status-text { font-size: 0.55rem; }
             
             /* Responsive Slideshow */
             .scenes-box { width: 95%; max-height: 90%; } 
@@ -439,9 +467,8 @@
         <!-- SOLID BLACK SCREEN FOR INITIAL LOAD -->
         <div id="initial-black-screen"></div>
 
-        <!-- FLOATING LOADER -->
+        <!-- FLOATING LOADER (INTRO) -->
         <div id="floating-loader">
-            <div class="loading-status-text" id="master-loading-text">INITIALIZING SECURE ENVIRONMENT</div>
             <div class="master-spinner"></div>
         </div>
         
@@ -462,7 +489,7 @@
         <div id="intro-section"><div class="bar bar-top"></div><div class="bar bar-bottom"></div><div class="logo-text">LOVERS OF BOOTS</div></div>
         <div id="black-transition"></div>
 
-        <!-- MENU INTRO TRANSITION OVERLAY (NEW) -->
+        <!-- MENU INTRO TRANSITION OVERLAY -->
         <div id="menu-transition-overlay">
             <div class="menu-transition-text" id="menu-transition-text">SETTINGS</div>
         </div>
@@ -494,7 +521,7 @@
                 <div class="card-intro-animator">
                     <div class="animated-outer-box" id="clickable-card-wrapper">
                         <div class="content-card">
-                            <div class="card-bg" style="background-image: url('https://cgasansol.github.io/drmvideo/button.jpg');"></div>
+                            <div class="card-bg" id="main-card-bg" style="background-image: url('https://cgasansol.github.io/drmvideo/button.jpg');"></div>
                             <div class="card-overlay-dark"></div>
                             <button class="btn-play"></button>
                         </div>
@@ -727,6 +754,7 @@
         const videoOverlay = document.getElementById('video-overlay');
         const promptModal = document.getElementById('prompt-modal');
         const heroCard = document.getElementById('hero-card');
+        const mainCardBgElement = document.getElementById('main-card-bg');
 
         function executeExpandAndPlay(startTime = null, customBg = 'https://cgasansol.github.io/drmvideo/button.jpg', loadingText = 'MAIN VIDEO LOADING PLEASE WAIT...') {
             promptModal.classList.remove('show'); 
@@ -734,7 +762,10 @@
             if(bgToggleBtn.classList.contains('active')) menuBgVideo.pause(); 
             video.pause(); 
             
-            // Show cinematic transition
+            // Morph the small card's background right before expanding
+            if(mainCardBgElement) mainCardBgElement.style.backgroundImage = `url('${customBg}')`;
+
+            // Show cinematic transition overlay
             const transitionOverlay = document.getElementById('scene-transition-overlay');
             transitionOverlay.style.backgroundImage = `url('${customBg}')`;
             
@@ -942,7 +973,6 @@
                 settingsPanelMain.classList.remove('show');
                 settingsPanelVideo.classList.remove('show');
 
-                // Unified play function for Scenes
                 executeExpandAndPlay(scene.time, bgImage, 'BUFFERING SCENE...');
             });
             scenesListContainer.appendChild(card);
@@ -988,8 +1018,52 @@
             }
         });
 
+        // ================= RANDOM BACKGROUND LOGIC FOR MAIN PLAY (1-MIN NO REPEAT) =================
+        const allRandomLoadingBgs = [
+            "https://cgasansol.github.io/drmvideo/rand1.jpg",
+            "https://cgasansol.github.io/drmvideo/rand2.jpg",
+            "https://cgasansol.github.io/drmvideo/rand3.jpg",
+            "https://cgasansol.github.io/drmvideo/rand4.jpg",
+            "https://cgasansol.github.io/drmvideo/rand5.jpg",
+            "https://cgasansol.github.io/drmvideo/rand6.jpg",
+            "https://cgasansol.github.io/drmvideo/rand7.jpg",
+            "https://cgasansol.github.io/drmvideo/rand8.jpg"
+        ];
+
+        let availableBgs = [...allRandomLoadingBgs];
+        let usedBgs = []; 
+
+        function getRandomLoadingBg() {
+            const now = Date.now();
+            
+            // Free up images that have been in 'used' pool for > 60 seconds
+            usedBgs = usedBgs.filter(item => {
+                if (now - item.time > 60000) {
+                    availableBgs.push(item.url);
+                    return false; 
+                }
+                return true;
+            });
+
+            // If all 8 images were used within 60 seconds, reset the available pool
+            if (availableBgs.length === 0) {
+                availableBgs = [...allRandomLoadingBgs];
+                usedBgs = [];
+            }
+
+            // Pick random image from available pool
+            const randomIndex = Math.floor(Math.random() * availableBgs.length);
+            const pickedBg = availableBgs[randomIndex];
+
+            // Move to used pool with timestamp
+            availableBgs.splice(randomIndex, 1);
+            usedBgs.push({ url: pickedBg, time: now });
+
+            return pickedBg;
+        }
+
         // ================= MAIN FLOW =================
-        const startBtn = document.getElementById('start-button'), initialBlackScreen = document.getElementById('initial-black-screen'), floatingLoader = document.getElementById('floating-loader'), loaderText = document.getElementById('master-loading-text');
+        const startBtn = document.getElementById('start-button'), initialBlackScreen = document.getElementById('initial-black-screen'), floatingLoader = document.getElementById('floating-loader');
         const preloader = document.getElementById('preloader'), logoScreen = document.getElementById('logo-screen');
         const intro = document.getElementById('intro-section'), mainApp = document.getElementById('main-app'), blackTransition = document.getElementById('black-transition'); 
         const fullscreenContainer = document.documentElement; 
@@ -1004,7 +1078,7 @@
                 if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape');
             } catch(e) {}
 
-            initialBlackScreen.style.display = 'block'; floatingLoader.style.display = 'flex'; loaderText.innerText = 'INITIALIZING SECURE ENVIRONMENT';
+            initialBlackScreen.style.display = 'block'; floatingLoader.style.display = 'flex';
             
             setTimeout(() => {
                 floatingLoader.style.opacity = '0'; initialBlackScreen.style.opacity = '0';
@@ -1020,7 +1094,7 @@
                             logoScreen.style.display = 'flex'; setTimeout(() => { logoScreen.style.opacity = '1'; logoScreen.classList.add('show'); }, 50);
                             
                             setTimeout(() => {
-                                floatingLoader.style.display = 'flex'; loaderText.innerText = 'DECRYPTING STREAM DATA';
+                                floatingLoader.style.display = 'flex';
                                 player.load(manifestUri).catch(e => console.error("Load Error", e));
 
                                 const randomLoadTime = Math.floor(Math.random() * (10000 - 5000 + 1)) + 5000;
@@ -1122,18 +1196,18 @@
             if (video.currentTime > 2) {
                 promptModal.classList.add('show');
             } else {
-                executeExpandAndPlay(0, 'https://cgasansol.github.io/drmvideo/button.jpg', 'MAIN VIDEO LOADING PLEASE WAIT...');
+                executeExpandAndPlay(0, getRandomLoadingBg(), 'MAIN VIDEO LOADING PLEASE WAIT...');
             }
         });
 
         // RESUME / RESTART CLICK
         document.getElementById('btn-resume').addEventListener('click', () => { 
             playCinematicWhoosh(); 
-            executeExpandAndPlay(null, 'https://cgasansol.github.io/drmvideo/button.jpg', 'RESUMING VIDEO PLEASE WAIT...'); 
+            executeExpandAndPlay(null, getRandomLoadingBg(), 'RESUMING VIDEO PLEASE WAIT...'); 
         });
         document.getElementById('btn-restart').addEventListener('click', () => { 
             playCinematicWhoosh(); 
-            executeExpandAndPlay(0, 'https://cgasansol.github.io/drmvideo/button.jpg', 'MAIN VIDEO LOADING PLEASE WAIT...'); 
+            executeExpandAndPlay(0, getRandomLoadingBg(), 'MAIN VIDEO LOADING PLEASE WAIT...'); 
         });
         document.getElementById('btn-close-prompt').addEventListener('click', () => { 
             playCinematicWhoosh(); promptModal.classList.remove('show'); 
@@ -1144,6 +1218,9 @@
             clearTimeout(hideControlsTimeout); videoOverlay.classList.remove('hide-controls'); videoOverlay.classList.remove('show'); 
             settingsPanelVideo.classList.remove('show'); scenesModal.classList.remove('show');
             
+            // Set the main card back to original button.jpg when closed
+            if(mainCardBgElement) mainCardBgElement.style.backgroundImage = `url('https://cgasansol.github.io/drmvideo/button.jpg')`;
+
             setTimeout(() => {
                 heroCard.classList.remove('fullscreen-active');
                 heroCard.style.left = ''; heroCard.style.top = ''; heroCard.style.bottom = '45px'; heroCard.style.right = '50px';
